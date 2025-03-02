@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ product.name }}</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
+</head>
+<body>
+<div class="container">
+    <h1 class="my-4">{{ product.name }}</h1>
+    <img src="{{ url_for('static', filename=product.image) }}" alt="{{ product.name }}" class="img-fluid mb-4">
+    <p>{{ product.description }}</p>
+    <p><strong>Категория:</strong> {{ product.category }}</p>
+    <a href="{{ url_for('index') }}" class="btn btn-secondary">Вернуться назад</a>
+</div>
+</body>
+</html>
