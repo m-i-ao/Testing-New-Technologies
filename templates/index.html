@@ -1,33 +1,14 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>Магазин</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
-</head>
-<body>
-<div class="container">
-    <h1 class="my-4">Магазин</h1>
-    <!-- Фильтр по категориям (опционально) -->
-    <div class="mb-4">
-        <a href="{{ url_for('index') }}" class="btn btn-secondary">Все категории</a>
-        <a href="{{ url_for('index', category='Категория A') }}" class="btn btn-primary">Категория A</a>
-        <a href="{{ url_for('index', category='Категория B') }}" class="btn btn-primary">Категория B</a>
-    </div>
-    <div class="row">
-        {% for product in products %}
-        <div class="col-md-4">
-            <div class="card mb-4">
-                <img src="{{ url_for('static', filename=product.image) }}" class="card-img-top" alt="{{ product.name }}">
-                <div class="card-body">
-                    <h5 class="card-title">{{ product.name }}</h5>
-                    <p class="card-text">{{ product.description }}</p>
-                    <a href="{{ url_for('product_detail', product_id=product.id) }}" class="btn btn-primary">Подробнее</a>
-                </div>
-            </div>
+{% extends "base.html" %}
+
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+    <h1>Добро пожаловать в магазин!</h1>
+    {% for product in products %}
+        <div>
+            <h2>{{ product.name }}</h2>
+            <p>{{ product.description }}</p>
+            <img src="{{ product.image_url }}" alt="{{ product.name }}" width="150">
         </div>
-        {% endfor %}
-    </div>
-</div>
-</body>
-</html>
+    {% endfor %}
+{% endblock %}
