@@ -1,58 +1,26 @@
-from flask import Flask, render_template, request
+import os
+from flask import Flask, render_template, redirect, url_for, flash, request
+from werkzeug.utils import secure_filename
+from flask_login import login_required, current_user
+from models import db, Product
+from forms import ProductForm
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import UserMixin
-from flask import Flask
-from flask_login import LoginManager
+from flask_login import UserMixin, LoginManager, login_user, logout_user, login_required, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Length
-from flask import render_template, redirect, url_for, flash
-from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import request
+from flask_sqlalchemy import SQLAlchemy
+
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your_secret_key'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
 
-# Пример списка товаров
-products = [
-    {
-        'id': 1,
-        'name': 'Товар 1',
-        'description': 'Описание товара 1',
-        'image': 'images/product1.jpg',
-        'category': 'Категория A'
-    },
-    {
-        'id': 2,
-        'name': 'Товар 2',
-        'description': 'Описание товара 2',
-        'image': 'images/product2.jpg',
-        'category': 'Категория B'
-    }
-]
-
-@app.route('/')
-def index():
-    # Если передан параметр для фильтрации по категории
-    category = request.args.get('category')
-    if category:
-        filtered_products = [p for p in products if p['category'] == category]
-    else:
-        filtered_products = products
-    return render_template('index.html', products=filtered_products)
-
-@app.route('/product/<int:product_id>')
-def product_detail(product_id):
-    product = next((p for p in products if p['id'] == product_id), None)
-    if product:
-        return render_template('product_detail.html', product=product)
-    else:
-        return "Товар не найден", 404
-
-if __name__ == '__main__':
-    # Для доступа из сети используем host='0.0.0.0'
-    app.run(host='0.0.0.0', port=5000, debug=True)
-
-db = SQLAlchemy()
+db = SQLAlchemy(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -72,19 +40,13 @@ class Product(db.Model):
     image_url = db.Column(db.String(500), nullable=True)
     category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
-
-db.init_app(app)
-
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'login'
-
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+@app.context_processor
+def inject_user():
+    return dict(current_user=current_user)
 
 class RegistrationForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired(), Length(min=2, max=150)])
@@ -95,6 +57,11 @@ class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
     password = PasswordField('Password', validators=[DataRequired()])
     submit = SubmitField('Login')
+
+@app.route('/')
+def index():
+    categories = Category.query.all()
+    return render_template('index.html', categories=categories)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -117,7 +84,7 @@ def login():
             login_user(user)
             return redirect(url_for('admin')) if user.is_admin else redirect(url_for('index'))
         else:
-            flash('Login Unsuccessful. Please check username and password', 'danger')
+            flash('Invalid username or password', 'danger')
     return render_template('login.html', form=form)
 
 @app.route('/logout')
@@ -165,3 +132,52 @@ def add_product():
         db.session.commit()
         flash('Product added successfully!', 'success')
     return redirect(url_for('admin'))
+
+if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+    app.run(host='0.0.0.0', port=5000, debug=True)
+
+@app.route('/admin')
+@login_required
+def admin_panel():
+    if not current_user.is_admin:
+        flash('Доступ запрещён!', 'danger')
+        return redirect(url_for('index'))
+    return render_template('admin.html')
+
+UPLOAD_FOLDER = 'static/uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+@app.route('/add_product', methods=['GET', 'POST'])
+@login_required
+def add_product():
+    if not current_user.is_admin:
+        flash('Доступ запрещён!', 'danger')
+        return redirect(url_for('index'))
+
+    form = ProductForm()
+    if form.validate_on_submit():
+        filename = None
+        if form.image.data:
+            filename = secure_filename(form.image.data.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            form.image.data.save(filepath)
+
+        new_product = Product(
+            name=form.name.data,
+            description=form.description.data,
+            price=form.price.data,
+            image=filename
+        )
+        db.session.add(new_product)
+        db.session.commit()
+        flash('Товар добавлен!', 'success')
+        return redirect(url_for('admin_panel'))
+
+    return render_template('add_product.html', form=form)
+
+@app.route('/')
+def index():
+    products = Product.query.all()
+    return render_template('index.html', products=products)

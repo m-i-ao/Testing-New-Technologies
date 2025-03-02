@@ -12,3 +12,14 @@
         </div>
     {% endfor %}
 {% endblock %}
+
+{% for product in products %}
+    <div>
+        <h3>{{ product.name }}</h3>
+        <p>{{ product.description }}</p>
+        <p>Цена: {{ product.price }} руб.</p>
+        {% if product.image %}
+            <img src="{{ url_for('static', filename='uploads/' + product.image) }}" alt="{{ product.name }}" width="150">
+        {% endif %}
+    </div>
+{% endfor %}
